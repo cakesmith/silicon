@@ -58,49 +58,101 @@ describe('silicon', function () {
 
       var xorSim = Silicon.simulate('xor');
       expect(xorSim(0, 0)).toBe(0);
-      expect(xorSim(1, 0)).toBe(1);
-      expect(xorSim(0, 1)).toBe(1);
-      expect(xorSim(1, 1)).toBe(0);
+      expect(xorSim(-1, 0)).toBe(-1);
+      expect(xorSim(0, -1)).toBe(-1);
+      expect(xorSim(-1, -1)).toBe(0);
 
     });
 
   });
 
-  describe('recursive functions', function () {
+  describe('recursive function: latch', function () {
 
-    var rs;
+    var rsLatch;
 
     beforeEach(function () {
 
-      rs = {
-        name: 'rs',
+      rsLatch = {
+        name: 'rsLatch',
         in  : ['r', 's'],
-        out : 'q',
+        out : ['q', 'notQ'],
         arch: {
-          q : {nor: ['r', 'n2']},
-          n2: {nor: ['s', 'q']}
+          q   : {nor: ['r', 'notQ']},
+          notQ: {nor: ['s', 'q']}
         }
       };
 
-      Silicon.add(rs);
+
+      Silicon.add(rsLatch);
 
     });
 
-    it('should add the rs latch', function () {
+    it('should add the rsLatch', function () {
 
-      expect(Silicon.chips.rs).toEqual(rs);
-
-    });
-
-    it('should not exceed maximum call stack', function () {
-
-      var rsSim = Silicon.simulate('rs');
-      expect(rsSim(0, 0)).toEqual({q: 1, n2: 0});
-
+      expect(Silicon.chips.rsLatch).toEqual(rsLatch);
 
     });
 
+    it('should simulate a function with a circular dependency', function () {
 
+      var rs = Silicon.simulate('rsLatch');
+      expect(rs(0, 0)).toEqual({q: 0, notQ: -1});
+      expect(rs(0, -1)).toEqual({q: -1, notQ: 0});
+      expect(rs(0, 0)).toEqual({q: -1, notQ: 0});
+      expect(rs(-1, 0)).toEqual({q: 0, notQ: -1});
+      expect(rs(0, 0)).toEqual({q: 0, notQ: -1});
+
+
+    });
+
+    it('should reset internal signals', function () {
+
+      var rs = Silicon.simulate('rsLatch');
+      expect(rs(0, 0)).toEqual({q: 0, notQ: -1});
+      expect(rs(0, -1)).toEqual({q: -1, notQ: 0});
+      expect(rs(0, 0)).toEqual({q: -1, notQ: 0});
+
+      rs.reset();
+
+      expect(rs(0, 0)).toEqual({q: 0, notQ: -1});
+
+
+    });
   });
+
+  describe('reursive function: circular', function () {
+
+    var circular;
+
+    beforeEach(function () {
+
+
+      circular = {
+        name: 'circular',
+        in  : 'in',
+        out : 'out',
+        arch: {
+          out: {not: 'out'}
+        }
+
+      };
+
+      Silicon.add(circular);
+
+
+    });
+
+
+    it('should simulate circular definition', function () {
+
+      var circle = Silicon.simulate('circular');
+
+      expect(circle()).toEqual(-1);
+      expect(circle()).toEqual(0);
+      expect(circle()).toEqual(-1);
+
+    });
+  });
+
 
 });

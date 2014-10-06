@@ -29,18 +29,55 @@ function Silicon() {
     }
   });
 
+  Silicon.prototype.add.call(this, {
+    name: 'nor',
+    in  : ['a', 'b'],
+    out : 'out',
+    arch: {
+      x  : {or: ['a', 'b']},
+      out: {not: 'x'}
+    }
+  });
+
 
 }
 
 Silicon.prototype.add = function (model) {
+
+  var self = this;
 
   // TODO check if chip is valid
 
   model.in = Array.isArray(model.in) ? model.in : [model.in];
   model.out = Array.isArray(model.out) ? model.out : [model.out];
 
-  this.chips[model.name] = model;
 
+  if (model.arch) {
+
+    model.internal = {};
+
+    Object.keys(model.arch).forEach(function (signal) {
+      // Find the internal signals.
+      // These signals are saved from one run
+      // of a simulation function to the next.
+      // Outputs are included as internal signals
+      // in order to resolve circular dependencies
+      var func = Object.keys(model.arch[signal])[0];
+      model.internal[signal] = {};
+      model.internal[signal].func = func;
+      var args = model.arch[signal][func];
+      model.internal[signal].args = Array.isArray(args) ? args : [args];
+    });
+
+
+    model.reset = function (value) {
+      Object.keys(model.arch).forEach(function (signal) {
+        model.internal[signal].value = value;
+      });
+    };
+  }
+
+  self.chips[model.name] = model;
 
 };
 
@@ -49,68 +86,96 @@ Silicon.prototype.simulate = function (name) {
   var self = this;
   var chip = self.chips[name];
 
-  return (Object.prototype.hasOwnProperty.call(chip, 'sim')) ? chip['sim'] :
+  var simulationFn = function () {
 
-    // Generate a simulation function
-    // if one is not already defined
+    var input = {},
+        output = {};
 
-    function () {
-
-      var input = {},
-          internal = {},
-          output = {};
-
-      if (Object.prototype.toString.call(arguments[0]) === '[object Object]') {
-        input = arguments[0];
-      } else {
-        var args = Array.isArray(arguments[0]) ? arguments[0] : arguments;
-        // arrange the arguments into the input object
-        // to match the model inputs
-        for (var i = 0; i < args.length; i++) {
-          input[chip['in'][i]] = args[i];
-        }
+    if (Object.prototype.toString.call(arguments[0]) === '[object Object]') {
+      input = arguments[0];
+    } else {
+      var args = Array.isArray(arguments[0]) ? arguments[0] : arguments;
+      // arrange the arguments into the input object
+      // to match the model inputs
+      for (var i = 0; i < args.length; i++) {
+        input[chip['in'][i]] = args[i];
       }
-
-      Object.keys(chip.arch).forEach(function (signal) {
-        // Find the internal signals.
-        // Out is included as an internal signal,
-        // in order to resolve circular dependencies
-
-        var func = Object.keys(chip.arch[signal])[0];
-        internal[signal] = {};
-        internal[signal].func = func;
-        var inputs = chip.arch[signal][func];
-        internal[signal].inputs = Array.isArray(inputs) ? inputs : [inputs];
-        internal[signal].value = 0;
-      });
-
-      chip.out.forEach(function (outputSignal) {
-        output[outputSignal] = (function resolve(signal) {
-
-          if (signal in input) {
-            return input[signal];
-          } else {
-
-            var args = internal[signal].inputs.map(resolve);
-            return Silicon.prototype.simulate.call(self, internal[signal].func).apply(self, args);
-
-          }
-
-
-        }(outputSignal))
-      });
-
-      if (Object.keys(output).length === 1) {
-        return output[Object.keys(output)[0]];
-      } else {
-        return output;
-      }
-
     }
 
 
-};
+    var resolved = [];
 
+    chip.out.forEach(function (outputSignal) {
+
+      var seen = [];
+      var check = [];
+
+      function simulate(func, args) {
+        return Silicon.prototype.simulate.call(self, func).apply(self, args);
+      }
+
+      function resolve(signal) {
+
+        if (signal in input) {
+          return input[signal];
+        }
+
+        seen.push(signal);
+
+        var args = chip.internal[signal].args.map(function (arg) {
+          if (seen.indexOf(arg) === -1) {
+            return resolve(arg);
+          } else {
+            var checkObj = {};
+            checkObj[arg] = chip.internal[arg].value;
+            check.push(checkObj);
+            return chip.internal[arg].value;
+          }
+        });
+
+        var result = chip.internal[signal].value = simulate(chip.internal[signal].func, args);
+
+        if (signal in check) {
+          if (result !== check[signal]) {
+            chip.internal[signal].value = check[signal];
+            seen = [signal];
+            return resolve(signal);
+          } else {
+            var resolvedObj = {};
+            resolvedObj[signal] = result;
+            resolved.push(resolvedObj);
+            return result;
+          }
+        } else {
+          return result;
+        }
+      }
+
+      output[outputSignal] = outputSignal in resolved ? resolved[outputSignal] : resolve(outputSignal);
+
+
+    });
+
+    // If output is only one signal, we'll return just that signal
+    // otherwise, we can return an output signal object with structure:
+    // { signal: value }
+
+    if (Object.keys(output).length === 1) {
+      return output[Object.keys(output)[0]];
+    } else {
+      return output;
+    }
+
+  };
+
+  simulationFn.reset = chip.reset;
+
+// Generate a simulation function if one is not already defined.
+
+  return Object.prototype.hasOwnProperty.call(chip, 'sim') ? chip['sim'] : simulationFn;
+
+
+};
 
 Silicon.prototype.Silicon = Silicon;
 

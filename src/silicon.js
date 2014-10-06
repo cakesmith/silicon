@@ -123,6 +123,7 @@ Silicon.prototype.simulate = function (name) {
         seen.push(signal);
 
         var args = chip.internal[signal].args.map(function (arg) {
+
           if (seen.indexOf(arg) === -1) {
             return resolve(arg);
           } else {

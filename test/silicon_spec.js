@@ -45,12 +45,11 @@ describe('silicon', function () {
 
       Silicon.add(xor);
 
-
     });
 
     it('should add a simple chip', function () {
 
-      expect(Silicon.chips['xor']).toEqual(xor);
+      expect(Silicon.chips['xor']).toBeDefined();
 
     });
 
@@ -68,7 +67,7 @@ describe('silicon', function () {
 
   describe('recursive function: latch', function () {
 
-    var rsLatch;
+    var rs, rsLatch, rsLatchChip;
 
     beforeEach(function () {
 
@@ -83,19 +82,20 @@ describe('silicon', function () {
       };
 
 
-      Silicon.add(rsLatch);
+      rsLatchChip = Silicon.add(rsLatch);
+      rs = rsLatchChip.simulate();
 
     });
 
     it('should add the rsLatch', function () {
 
-      expect(Silicon.chips.rsLatch).toEqual(rsLatch);
+      expect(Silicon.chips.rsLatch).toBeDefined();
 
     });
 
+
     it('should simulate a function with a circular dependency', function () {
 
-      var rs = Silicon.simulate('rsLatch');
       expect(rs(0, 0)).toEqual({q: 0, notQ: -1});
       expect(rs(0, -1)).toEqual({q: -1, notQ: 0});
       expect(rs(0, 0)).toEqual({q: -1, notQ: 0});
@@ -152,6 +152,42 @@ describe('silicon', function () {
       expect(circle()).toEqual(-1);
 
     });
+  });
+
+  describe('signal objects', function () {
+
+    var xor;
+
+    beforeEach(function () {
+
+      xor = {
+
+        name: 'xor',
+
+        in : ['a', 'b'],
+        out: 'out',
+
+        arch: {
+          out: {or: [{and: ['a', {not: 'b'}]}, {and: [{not: 'a'}, 'b']}]}
+        }
+      };
+
+      Silicon.add(xor);
+
+    });
+
+    it('should resolve signal objects', function () {
+
+      expect(Silicon.chips['xor']['arch']).toEqual({
+        out     : {or: ['_signal0', '_signal2']},
+        _signal0: {and: ['a', '_signal1']},
+        _signal2: {and: ['_signal3', 'b']},
+        _signal1: {not: ['b']},
+        _signal3: {not: ['a']}
+      });
+
+    });
+
   });
 
 

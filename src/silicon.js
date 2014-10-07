@@ -42,6 +42,10 @@ function Silicon() {
 
 }
 
+function isObject(x) {
+  return (Object.prototype.toString.call(x) === '[object Object]');
+}
+
 Silicon.prototype.add = function (model) {
 
   var self = this;
@@ -56,18 +60,33 @@ Silicon.prototype.add = function (model) {
 
     model.internal = {};
 
-    Object.keys(model.arch).forEach(function (signal) {
+    var signals = 0;
+
+    Object.keys(model.arch).forEach(function resolve (signal) {
       // Find the internal signals.
       // These signals are saved from one run
       // of a simulation function to the next.
       // Outputs are included as internal signals
       // in order to resolve circular dependencies
-      var func = Object.keys(model.arch[signal])[0];
-      model.internal[signal] = {};
-      model.internal[signal].func = func;
-      var args = model.arch[signal][func];
-      model.internal[signal].args = Array.isArray(args) ? args : [args];
+
+
+      var arch = model.arch[signal];
+      var func = Object.keys(arch)[0];
+      var args = arch[func];
+      var internal = model.internal[signal] = {};
+      internal.func = func;
+      internal.args = Array.isArray(args) ? args : [args];
+      model.arch[signal][func] = internal.args = internal.args.map(function (arg) {
+        if (isObject(arg)) {
+          var name = '_signal' + signals++;
+          model.arch[name] = arg;
+          return resolve(name);
+        }
+        return arg;
+      });
+      return signal;
     });
+
 
 
     model.reset = function (value) {
@@ -77,7 +96,15 @@ Silicon.prototype.add = function (model) {
     };
   }
 
+  // This just adds the .simulate() method to the chip
+  // as a convenience method.
+  model.simulate = function() {
+    return Silicon.prototype.simulate.call(self, model.name);
+  };
+
   self.chips[model.name] = model;
+
+  return model;
 
 };
 
@@ -91,7 +118,7 @@ Silicon.prototype.simulate = function (name) {
     var input = {},
         output = {};
 
-    if (Object.prototype.toString.call(arguments[0]) === '[object Object]') {
+    if (isObject(arguments[0])) {
       input = arguments[0];
     } else {
       var args = Array.isArray(arguments[0]) ? arguments[0] : arguments;
@@ -139,7 +166,7 @@ Silicon.prototype.simulate = function (name) {
         if (signal in check) {
           if (result !== check[signal]) {
             chip.internal[signal].value = check[signal];
-            seen = [signal];
+            seen = [];
             return resolve(signal);
           } else {
             var resolvedObj = {};

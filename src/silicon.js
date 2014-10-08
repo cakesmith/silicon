@@ -206,6 +206,15 @@ Silicon.prototype.simulate = function (name) {
 
 };
 
+Silicon.prototype.reset = function(name) {
+
+  var self = this;
+  var chip = self.chips[name];
+
+  return chip.reset();
+
+};
+
 Silicon.prototype.Silicon = Silicon;
 
 module.exports = exports = new Silicon();

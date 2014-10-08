@@ -115,7 +115,9 @@ expect(rs(0, 0)).toEqual({q: 0, notQ: -1});
 
 This is a perfectly valid chip definition and will not produce an infinite recursion.
 
-We can explicitly define the simulation function of a chip if we wish. Just create a property on the chip object of 'sim' and set to the value of whatever simulation function you want. For example, the built in `not` chip is defined as:
+If at any point you want to clear the stored signal values of a chip, just call `chip.reset()` or `Silicon.reset('name')`.
+
+We can explicitly define the simulation function of a chip if we wish. Just create a property on the chip object of 'sim' and have it return whatever simulation function you wish. For example, the built in `not` chip is defined as:
 
 ```js
 Silicon.prototype.add({

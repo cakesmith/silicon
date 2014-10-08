@@ -115,7 +115,12 @@ describe('silicon', function () {
       rs.reset();
 
       expect(rs(0, 0)).toEqual({q: 0, notQ: -1});
+      expect(rs(0, -1)).toEqual({q: -1, notQ: 0});
+      expect(rs(0, 0)).toEqual({q: -1, notQ: 0});
 
+      Silicon.reset('rsLatch');
+
+      expect(rs(0, 0)).toEqual({q: 0, notQ: -1});
 
     });
   });

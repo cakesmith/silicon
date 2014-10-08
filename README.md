@@ -2,9 +2,12 @@ Silicon.js
 ==========
 Hardware description for software engineers.
 -------------------------------------------
+
 Silicon.js is a module used to describe and simulate logic circuits. It uses a simple object format to describe each unit (called a *chip*) that is built up from other, lower level chips.
+
 ### Super Simple API.
 With Silicon.js it's easy to describe a chip. Here's an example:
+
 ```js
 var Silicon = require('silicon');
 
@@ -22,6 +25,7 @@ var xor = {
 
 Silicon.add(xor);
 ```
+
 This describes the *xor* chip, which takes two inputs and produces one output. The *arch* section describes the layout of the chip. There are three main sections in a chip object: `in`, `out`, and `arch`. 
 
 `in`
@@ -33,6 +37,7 @@ This describes the *xor* chip, which takes two inputs and produces one output. T
 `arch`
   - This is the **architecture object** of the chip. Each property of the object either names an internal signal that may be used in any other part of the chip, or the refers to the name of an output signal defined in the `out` section. The value of this property is an object that may only have **one property**: the name of a chip which will provide the value of the signal. This may sound confusing, but it's really pretty simple. For example: `nota: { not: 'a' }` will take the value of `a`, pass it as the input to the (already defined) `not` chip, and assign the value of the result to the signal `nota`. This is then is referenced again as one of the inputs to the `and` chip that comprises the signal `w2`.
   - The architecture object may contain `signal objects` which are just shorthand for defining a signal inline. It is a slightly more compact way of expressing a chip's architecture, at the expense of possibly being less readable. Example:
+
 ```js
 Silicon.add({
         name: 'xor',
@@ -43,6 +48,7 @@ Silicon.add({
         }
       });
 ```
+
 This is exactly the same architecture as before, only without the explicit signal names `w1`, `nota`, etc. You can see that `out` is comprised of an `or` chip that takes as its inputs an array consisting of the output of two `and` chips, and so on. This is merely for convenience instead of having to explicitly name each and every internal signal.
 
 
@@ -67,6 +73,7 @@ var xor = Silicon.add({
 }).simulate();
 ```
 The `not` chip uses arithmetic negation (~) so we use `-1` as **true** and `0` as **false** for these tests:
+
 ```js
 expect(xor(0, 0)).toEqual(0);
 expect(xor(-1, 0)).toEqual(-1);
@@ -74,6 +81,7 @@ expect(xor(0, -1)).toEqual(-1);
 expect(xor(-1, -1)).toEqual(0);
 
 ```
+
 At this point, `xor` and `Silicon.simulate('xor')` are the same function.
 
 Under the hood, `Silicon` uses a simulation engine which stores the value of its signals between usages. The gist of the algorithm is something like this:
@@ -86,6 +94,7 @@ Under the hood, `Silicon` uses a simulation engine which stores the value of its
 6. If the new value is different, the original output value will be used.
 
 This lets us be able to simulate something like a [SR Latch][1]:
+
 ```js
 var rs = Silicon.add({
         name: 'rsLatch',
@@ -103,9 +112,11 @@ expect(rs(0, 0)).toEqual({q: -1, notQ: 0});
 expect(rs(-1, 0)).toEqual({q: 0, notQ: -1});
 expect(rs(0, 0)).toEqual({q: 0, notQ: -1});
 ```
+
 This is a perfectly valid chip definition and will not produce an infinite recursion.
 
-We can explicitly define the simulation function of a chip if we wish. Just create a property on the chip object of 'sim' and have it return whatever simulation function you wish. For example, the built in `not` chip is defined as:
+We can explicitly define the simulation function of a chip if we wish. Just create a property on the chip object of 'sim' and set to the value of whatever simulation function you want. For example, the built in `not` chip is defined as:
+
 ```js
 Silicon.prototype.add({
   name: 'not',
@@ -116,6 +127,5 @@ Silicon.prototype.add({
   }
 });
 ```
-
 
 [1]:[https://en.wikipedia.org/wiki/Flip-flop_(electronics)#SR_NOR_latch]

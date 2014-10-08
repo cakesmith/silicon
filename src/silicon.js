@@ -76,17 +76,18 @@ Silicon.prototype.add = function (model) {
       var internal = model.internal[signal] = {};
       internal.func = func;
       internal.args = Array.isArray(args) ? args : [args];
+
       model.arch[signal][func] = internal.args = internal.args.map(function (arg) {
         if (isObject(arg)) {
           var name = '_signal' + signals++;
           model.arch[name] = arg;
           return resolve(name);
+        } else {
+          return arg;
         }
-        return arg;
       });
       return signal;
     });
-
 
 
     model.reset = function (value) {

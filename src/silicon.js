@@ -1,35 +1,37 @@
 function Silicon() {
 
-  this.chips = {};
+  var self = this;
 
-  Silicon.prototype.add.call(this, {
+  self.chips = {};
+
+  var not = {
     name: 'not',
     in  : 'a',
     out : 'out',
     sim : function (a) {
       return ~a;
     }
-  });
+  };
 
-  Silicon.prototype.add.call(this, {
+  var and = {
     name: 'and',
     in  : ['a', 'b'],
     out : 'out',
     sim : function (a, b) {
       return a & b;
     }
-  });
+  };
 
-  Silicon.prototype.add.call(this, {
+  var or = {
     name: 'or',
     in  : ['a', 'b'],
     out : 'out',
     sim : function (a, b) {
       return a | b;
     }
-  });
+  };
 
-  Silicon.prototype.add.call(this, {
+  var nor = {
     name: 'nor',
     in  : ['a', 'b'],
     out : 'out',
@@ -37,8 +39,13 @@ function Silicon() {
       x  : {or: ['a', 'b']},
       out: {not: 'x'}
     }
-  });
+  };
 
+  var builtins = [not, and, or, nor];
+
+  builtins.forEach(function(chip) {
+    Silicon.prototype.add.call(self, chip);
+  });
 
 }
 

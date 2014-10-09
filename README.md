@@ -2,6 +2,7 @@ Silicon.js
 ==========
 Hardware description for software engineers.
 -------------------------------------------
+**Silicon is still a work in progress, if you find any bugs or want to request a feature, please file an issue on [the github issues page][2], thanks!!**
 
 Silicon.js is a module used to describe and simulate logic circuits. It uses a simple object format to describe each unit (called a *chip*) that is built up from other, lower level chips.
 
@@ -130,4 +131,5 @@ Silicon.prototype.add({
 });
 ```
 
-[1]:[https://en.wikipedia.org/wiki/Flip-flop_(electronics)#SR_NOR_latch]
+[1]:https://en.wikipedia.org/wiki/Flip-flop_(electronics)#SR_NOR_latch
+[2]:https://github.com/cakesmith/silicon/issues

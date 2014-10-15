@@ -43,7 +43,7 @@ function Silicon() {
 
   var builtins = [not, and, or, nor];
 
-  builtins.forEach(function(chip) {
+  builtins.forEach(function (chip) {
     Silicon.prototype.add.call(self, chip);
   });
 
@@ -69,7 +69,7 @@ Silicon.prototype.add = function (model) {
 
     var signals = 0;
 
-    Object.keys(model.arch).forEach(function resolve (signal) {
+    Object.keys(model.arch).forEach(function resolve(signal) {
       // Find the internal signals.
       // These signals are saved from one run
       // of a simulation function to the next.
@@ -106,7 +106,7 @@ Silicon.prototype.add = function (model) {
 
   // This just adds the .simulate() method to the chip
   // as a convenience method.
-  model.simulate = function() {
+  model.simulate = function () {
     return Silicon.prototype.simulate.call(self, model.name);
   };
 
@@ -116,12 +116,19 @@ Silicon.prototype.add = function (model) {
 
 };
 
+
 Silicon.prototype.simulate = function (name) {
+
+  var debugging = false;
 
   var self = this;
   var chip = self.chips[name];
 
   var simulationFn = function () {
+
+
+    var maxTries = 1;
+    var tries = maxTries;
 
     var input = {},
         output = {};
@@ -137,13 +144,18 @@ Silicon.prototype.simulate = function (name) {
       }
     }
 
+    if (debugging) {
+      console.log();
+      console.log(name + ' (' + Array.prototype.slice.apply(arguments) + ')');
+    }
 
     var resolved = [];
+
 
     chip.out.forEach(function (outputSignal) {
 
       var seen = [];
-      var check = [];
+      var check = {};
 
       function simulate(func, args) {
         return Silicon.prototype.simulate.call(self, func).apply(self, args);
@@ -156,30 +168,37 @@ Silicon.prototype.simulate = function (name) {
         }
 
         seen.push(signal);
-
         var args = chip.internal[signal].args.map(function (arg) {
 
           if (seen.indexOf(arg) === -1) {
             return resolve(arg);
           } else {
-            var checkObj = {};
-            checkObj[arg] = chip.internal[arg].value;
-            check.push(checkObj);
+            check[arg] = chip.internal[arg].value;
             return chip.internal[arg].value;
           }
         });
 
         var result = chip.internal[signal].value = simulate(chip.internal[signal].func, args);
 
+        if (debugging) {
+          console.log(signal + ' <= ' + chip.internal[signal].func + '(' + chip.internal[signal].args + ') <= ' + chip.internal[signal].func + '(' + args + ') <= ' + result);
+        }
+
         if (signal in check) {
           if (result !== check[signal]) {
-            chip.internal[signal].value = check[signal];
+            chip.internal[signal].value = result;
             seen = [];
-            return resolve(signal);
+            if (tries <= 0) {
+              throw new Error('Chip "' + chip.name + '" does not stabilize in ' + (maxTries + 1) + ' iterations. This could be due to a circular dependency.');
+            } else {
+              tries--;
+              return resolve(signal);
+            }
           } else {
             var resolvedObj = {};
             resolvedObj[signal] = result;
             resolved.push(resolvedObj);
+            tries = maxTries;
             return result;
           }
         } else {
@@ -213,7 +232,7 @@ Silicon.prototype.simulate = function (name) {
 
 };
 
-Silicon.prototype.reset = function(name) {
+Silicon.prototype.reset = function (name) {
 
   var self = this;
   var chip = self.chips[name];

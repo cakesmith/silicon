@@ -93,8 +93,7 @@ describe('silicon', function () {
 
     });
 
-
-    it('should simulate a function with a circular dependency', function () {
+    it('should resolve a circular dependency if it stabilizes', function () {
 
       expect(rs(0, 0)).toEqual({q: 0, notQ: -1});
       expect(rs(0, -1)).toEqual({q: -1, notQ: 0});
@@ -125,7 +124,7 @@ describe('silicon', function () {
     });
   });
 
-  describe('reursive function: circular', function () {
+  describe('recursive function: circular', function () {
 
     var circular;
 
@@ -148,13 +147,20 @@ describe('silicon', function () {
     });
 
 
-    it('should simulate circular definition', function () {
+    it('should detect a true circular definition that does not stabilize', function () {
 
       var circle = Silicon.simulate('circular');
+      var errorMsg = 'Error: Chip "circular" does not stabilize in 2 iterations. This could be due to a circular dependency.';
+      var returnValue;
 
-      expect(circle()).toEqual(-1);
-      expect(circle()).toEqual(0);
-      expect(circle()).toEqual(-1);
+      try {
+        circle();
+      } catch (e) {
+        returnValue = e;
+      }
+
+      expect(returnValue).toBeDefined();
+      expect(returnValue.toString()).toEqual(errorMsg);
 
     });
   });
@@ -192,6 +198,12 @@ describe('silicon', function () {
       });
 
     });
+
+  });
+
+  describe('plugins', function() {
+
+
 
   });
 

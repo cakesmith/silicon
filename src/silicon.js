@@ -1,37 +1,50 @@
-function Silicon() {
+var debugging = true;
 
-  var self = this;
+// Helper function
+function isObject(x) {
+  return (Object.prototype.toString.call(x) === '[object Object]');
+}
 
-  self.chips = {};
+var Si = Silicon.prototype;
 
-  var not = {
+// Chip packages
+
+Si.pack = {};
+
+Si.pack['basic'] = (function () {
+  var basic = {};
+
+  basic.not = {
     name: 'not',
     in  : 'a',
     out : 'out',
     sim : function (a) {
       return ~a;
-    }
+    },
+    vhdl: 'out <= not a'
   };
 
-  var and = {
+  basic.and = {
     name: 'and',
     in  : ['a', 'b'],
     out : 'out',
     sim : function (a, b) {
       return a & b;
-    }
+    },
+    vhdl: 'out <= a and b'
   };
 
-  var or = {
+  basic.or = {
     name: 'or',
     in  : ['a', 'b'],
     out : 'out',
     sim : function (a, b) {
       return a | b;
-    }
+    },
+    vhdl: 'out <= a or b'
   };
 
-  var nor = {
+  basic.nor = {
     name: 'nor',
     in  : ['a', 'b'],
     out : 'out',
@@ -41,19 +54,34 @@ function Silicon() {
     }
   };
 
-  var builtins = [not, and, or, nor];
+  return basic;
+}());
 
-  builtins.forEach(function (chip) {
-    Silicon.prototype.add.call(self, chip);
-  });
+Si.pack['std_logic_1164'] = (function () {
 
-}
+  // IEEE multi-valued logic system as described in
+  // https://standards.ieee.org/downloads/1076/1076.2-1996/std_logic_1164-body.vhdl
 
-function isObject(x) {
-  return (Object.prototype.toString.call(x) === '[object Object]');
-}
 
-Silicon.prototype.add = function (model) {
+  var std_logic = {};
+
+  std_logic.resolve = {
+    name: 'resolve',
+    in  : 's',
+    out : 'result',
+    sim : function (s) {
+
+    }
+  };
+
+  return std_logic;
+}());
+
+
+
+// Core functionality
+
+Si.add = function (model) {
 
   var self = this;
 
@@ -62,20 +90,20 @@ Silicon.prototype.add = function (model) {
   model.in = Array.isArray(model.in) ? model.in : [model.in];
   model.out = Array.isArray(model.out) ? model.out : [model.out];
 
-
   if (model.arch) {
 
     model.internal = {};
 
     var signals = 0;
 
-    Object.keys(model.arch).forEach(function resolve(signal) {
+    Object.keys(model.arch).forEach(function flatten(signal) {
+
       // Find the internal signals.
       // These signals are saved from one run
       // of a simulation function to the next.
       // Outputs are included as internal signals
-      // in order to resolve circular dependencies
-
+      // in order to attempt to stabilize circular
+      // dependencies.
 
       var arch = model.arch[signal];
       var func = Object.keys(arch)[0];
@@ -88,7 +116,7 @@ Silicon.prototype.add = function (model) {
         if (isObject(arg)) {
           var name = '_signal' + signals++;
           model.arch[name] = arg;
-          return resolve(name);
+          return flatten(name);
         } else {
           return arg;
         }
@@ -104,34 +132,53 @@ Silicon.prototype.add = function (model) {
     };
   }
 
-  // This just adds the .simulate() method to the chip
-  // as a convenience method.
+  // Add convenience methods to chip
   model.simulate = function () {
-    return Silicon.prototype.simulate.call(self, model.name);
+    return Si.simulate.call(self, model.name);
   };
 
-  self.chips[model.name] = model;
+  model.synthesize = function () {
+    return Si.synthesize.call(self, model.name);
+  };
+
+
+  self.library[model.name] = model;
 
   return model;
 
 };
 
-
-Silicon.prototype.simulate = function (name) {
-
-  var debugging = false;
+Si.reset = function (name) {
 
   var self = this;
-  var chip = self.chips[name];
+  var chip = self.library[name];
+
+  return chip.reset();
+
+};
+
+Si.simulate = function (name) {
+
+  var self = this;
+  var chip = self.library[name];
+
+// Helper function
+
+  function simulate(func, args) {
+    return Si.simulate.call(self, func).apply(self, args);
+  }
+
+// Simulation function to be returned
 
   var simulationFn = function () {
-
 
     var maxTries = 1;
     var tries = maxTries;
 
     var input = {},
         output = {};
+
+// Sort input arguments
 
     if (isObject(arguments[0])) {
       input = arguments[0];
@@ -144,34 +191,32 @@ Silicon.prototype.simulate = function (name) {
       }
     }
 
+// **** Debug Logging ****
+
     if (debugging) {
       console.log();
       console.log(name + ' (' + Array.prototype.slice.apply(arguments) + ')');
     }
 
-    var resolved = [];
-
+    var alreadyTraced = [];
 
     chip.out.forEach(function (outputSignal) {
 
       var seen = [];
       var check = {};
 
-      function simulate(func, args) {
-        return Silicon.prototype.simulate.call(self, func).apply(self, args);
-      }
-
-      function resolve(signal) {
+      function trace(signal) {
 
         if (signal in input) {
           return input[signal];
         }
 
         seen.push(signal);
+
         var args = chip.internal[signal].args.map(function (arg) {
 
           if (seen.indexOf(arg) === -1) {
-            return resolve(arg);
+            return trace(arg);
           } else {
             check[arg] = chip.internal[arg].value;
             return chip.internal[arg].value;
@@ -179,6 +224,8 @@ Silicon.prototype.simulate = function (name) {
         });
 
         var result = chip.internal[signal].value = simulate(chip.internal[signal].func, args);
+
+// **** Debug Logging ****
 
         if (debugging) {
           console.log(signal + ' <= ' + chip.internal[signal].func + '(' + chip.internal[signal].args + ') <= ' + chip.internal[signal].func + '(' + args + ') <= ' + result);
@@ -189,15 +236,15 @@ Silicon.prototype.simulate = function (name) {
             chip.internal[signal].value = result;
             seen = [];
             if (tries <= 0) {
-              throw new Error('Chip "' + chip.name + '" does not stabilize in ' + (maxTries + 1) + ' iterations. This could be due to a circular dependency.');
+              throw new Error('Chip "' + chip.name + '" did not stabilize in ' + (maxTries + 1) + ' iterations due to a circular dependency: ' + signal + ' -> ' + chip.internal[signal].func + ' -> ' + signal);
             } else {
               tries--;
-              return resolve(signal);
+              return trace(signal);
             }
           } else {
-            var resolvedObj = {};
-            resolvedObj[signal] = result;
-            resolved.push(resolvedObj);
+            var tracedObj = {};
+            tracedObj[signal] = result;
+            alreadyTraced.push(tracedObj);
             tries = maxTries;
             return result;
           }
@@ -206,7 +253,7 @@ Silicon.prototype.simulate = function (name) {
         }
       }
 
-      output[outputSignal] = outputSignal in resolved ? resolved[outputSignal] : resolve(outputSignal);
+      output[outputSignal] = outputSignal in alreadyTraced ? alreadyTraced[outputSignal] : trace(outputSignal);
 
 
     });
@@ -223,24 +270,53 @@ Silicon.prototype.simulate = function (name) {
 
   };
 
+// Add a reset method to the simulation function
   simulationFn.reset = chip.reset;
 
 // Generate a simulation function if one is not already defined.
-
-  return Object.prototype.hasOwnProperty.call(chip, 'sim') ? chip['sim'] : simulationFn;
+  return chip.hasOwnProperty('sim') ? chip['sim'] : simulationFn;
 
 
 };
 
-Silicon.prototype.reset = function (name) {
+Si.synthesize = function (name) {
 
   var self = this;
-  var chip = self.chips[name];
+  var chip = self.library[name];
 
-  return chip.reset();
+  var vhdl = {};
+
+  vhdl.header = [];
+  vhdl.components = [];
+
 
 };
 
-Silicon.prototype.Silicon = Silicon;
+
+
+// Module definition and export
+
+function Silicon(pack) {
+
+  var self = this;
+
+  self.library = {};
+
+// default to the basic chip package
+
+  pack = pack === undefined ? 'basic' : pack;
+
+  if (Si.pack[pack] === undefined) {
+    throw new Error('Package ' + pack + ' is not defined.');
+  } else {
+    Object.keys(Si.pack[pack]).forEach(function(chip) {
+      Si.add.call(self, Si.pack[pack][chip]);
+    });
+  }
+
+
+}
+
+Si.Silicon = Silicon;
 
 module.exports = exports = new Silicon();

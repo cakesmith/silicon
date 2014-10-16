@@ -17,7 +17,7 @@ describe('silicon', function () {
   it('should be defined', function () {
 
     expect(Silicon).toBeDefined();
-    expect(Silicon.chips).toBeDefined();
+    expect(Silicon.library).toBeDefined();
 
   });
 
@@ -49,7 +49,7 @@ describe('silicon', function () {
 
     it('should add a simple chip', function () {
 
-      expect(Silicon.chips['xor']).toBeDefined();
+      expect(Silicon.library['xor']).toBeDefined();
 
     });
 
@@ -89,7 +89,7 @@ describe('silicon', function () {
 
     it('should add the rsLatch', function () {
 
-      expect(Silicon.chips.rsLatch).toBeDefined();
+      expect(Silicon.library.rsLatch).toBeDefined();
 
     });
 
@@ -150,7 +150,7 @@ describe('silicon', function () {
     it('should detect a true circular definition that does not stabilize', function () {
 
       var circle = Silicon.simulate('circular');
-      var errorMsg = 'Error: Chip "circular" does not stabilize in 2 iterations. This could be due to a circular dependency.';
+      var errorMsg = 'Error: Chip "circular" did not stabilize in 2 iterations due to a circular dependency: out -> not -> out';
       var returnValue;
 
       try {
@@ -189,7 +189,7 @@ describe('silicon', function () {
 
     it('should resolve signal objects', function () {
 
-      expect(Silicon.chips['xor']['arch']).toEqual({
+      expect(Silicon.library['xor']['arch']).toEqual({
         out     : {or: ['_signal0', '_signal2']},
         _signal0: {and: ['a', '_signal1']},
         _signal2: {and: ['_signal3', 'b']},
@@ -201,7 +201,11 @@ describe('silicon', function () {
 
   });
 
-  describe('plugins', function() {
+  describe('synthesis', function() {
+
+
+
+
 
 
 

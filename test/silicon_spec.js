@@ -1,10 +1,10 @@
-var Silicon;
+var Si;
 
 describe('silicon', function () {
 
   beforeEach(function () {
 
-    Silicon = require('../src/silicon');
+    Si = require('../src/silicon');
 
   });
 
@@ -16,8 +16,8 @@ describe('silicon', function () {
 
   it('should be defined', function () {
 
-    expect(Silicon).toBeDefined();
-    expect(Silicon.library).toBeDefined();
+    expect(Si).toBeDefined();
+    expect(Si.using).toEqual('basic')
 
   });
 
@@ -43,19 +43,19 @@ describe('silicon', function () {
         }
       };
 
-      Silicon.add(xor);
+      Si.add(xor);
 
     });
 
     it('should add a simple chip', function () {
 
-      expect(Silicon.library['xor']).toBeDefined();
+      expect(Si.library['xor']).toBeDefined();
 
     });
 
     it('should simulate the chip', function () {
 
-      var xorSim = Silicon.simulate('xor');
+      var xorSim = Si.simulate('xor');
       expect(xorSim(0, 0)).toBe(0);
       expect(xorSim(-1, 0)).toBe(-1);
       expect(xorSim(0, -1)).toBe(-1);
@@ -82,14 +82,14 @@ describe('silicon', function () {
       };
 
 
-      rsLatchChip = Silicon.add(rsLatch);
+      rsLatchChip = Si.add(rsLatch);
       rs = rsLatchChip.simulate();
 
     });
 
     it('should add the rsLatch', function () {
 
-      expect(Silicon.library.rsLatch).toBeDefined();
+      expect(Si.library.rsLatch).toBeDefined();
 
     });
 
@@ -106,7 +106,7 @@ describe('silicon', function () {
 
     it('should reset internal signals', function () {
 
-      var rs = Silicon.simulate('rsLatch');
+      var rs = Si.simulate('rsLatch');
       expect(rs(0, 0)).toEqual({q: 0, notQ: -1});
       expect(rs(0, -1)).toEqual({q: -1, notQ: 0});
       expect(rs(0, 0)).toEqual({q: -1, notQ: 0});
@@ -117,7 +117,7 @@ describe('silicon', function () {
       expect(rs(0, -1)).toEqual({q: -1, notQ: 0});
       expect(rs(0, 0)).toEqual({q: -1, notQ: 0});
 
-      Silicon.reset('rsLatch');
+      Si.reset('rsLatch');
 
       expect(rs(0, 0)).toEqual({q: 0, notQ: -1});
 
@@ -141,7 +141,7 @@ describe('silicon', function () {
 
       };
 
-      Silicon.add(circular);
+      Si.add(circular);
 
 
     });
@@ -149,7 +149,7 @@ describe('silicon', function () {
 
     it('should detect a true circular definition that does not stabilize', function () {
 
-      var circle = Silicon.simulate('circular');
+      var circle = Si.simulate('circular');
       var errorMsg = 'Error: Chip "circular" did not stabilize in 2 iterations due to a circular dependency: out -> not -> out';
       var returnValue;
 
@@ -183,13 +183,13 @@ describe('silicon', function () {
         }
       };
 
-      Silicon.add(xor);
+      Si.add(xor);
 
     });
 
     it('should resolve signal objects', function () {
 
-      expect(Silicon.library['xor']['arch']).toEqual({
+      expect(Si.library['xor']['arch']).toEqual({
         out     : {or: ['_signal0', '_signal2']},
         _signal0: {and: ['a', '_signal1']},
         _signal2: {and: ['_signal3', 'b']},
@@ -208,6 +208,203 @@ describe('silicon', function () {
 
 
 
+
+  });
+
+  describe('changing packs', function() {
+
+    var and;
+
+    beforeEach(function() {
+
+      Si.use('std_logic_1164');
+      and = Si.simulate('and');
+
+    });
+
+    it('should have the new functionality', function() {
+
+      expect(Si.using).toEqual('std_logic_1164');
+      expect(and).toBeDefined();
+
+    });
+
+    it('should use the new functionality', function() {
+
+
+      expect(and('U', 'X')).toEqual('U');
+
+
+  });
+
+    it('should call the after function', function() {
+
+      expect(and(0, 1)).toEqual(0);
+
+    });
+
+
+    it('should throw an error on invalid inputs', function() {
+
+      var t;
+
+      try {
+        and('foo', 'baz');
+      } catch (e) {
+        t = e;
+      }
+
+      expect(t.toString()).toEqual('Error: foo must be one of the types: 0,1,U,X,Z,W,L,H,-.');
+    });
+
+
+  });
+
+  describe('std_logic_1164', function() {
+
+    var names, chips, indexOf;
+    var orTable, andTable, xorTable, notTable;
+
+    beforeEach(function() {
+
+      andTable = {
+        'U': ['U', 'U', '0', 'U', 'U', 'U', '0', 'U', 'U'],
+        'X': ['U', 'X', '0', 'X', 'X', 'X', '0', 'X', 'X'],
+        '0': ['0', '0', '0', '0', '0', '0', '0', '0', '0'],
+        '1': ['U', 'X', '0', '1', 'X', 'X', '0', '1', 'X'],
+        'Z': ['U', 'X', '0', 'X', 'X', 'X', '0', 'X', 'X'],
+        'W': ['U', 'X', '0', 'X', 'X', 'X', '0', 'X', 'X'],
+        'L': ['0', '0', '0', '0', '0', '0', '0', '0', '0'],
+        'H': ['U', 'X', '0', '1', 'X', 'X', '0', '1', 'X'],
+        '-': ['U', 'X', '0', 'X', 'X', 'X', '0', 'X', 'X']
+      };
+
+      orTable = {
+        'U': ['U', 'U', 'U', '1', 'U', 'U', 'U', '1', 'U'],
+        'X': ['U', 'X', 'X', '1', 'X', 'X', 'X', '1', 'X'],
+        '0': ['U', 'X', '0', '1', 'X', 'X', '0', '1', 'X'],
+        '1': ['1', '1', '1', '1', '1', '1', '1', '1', '1'],
+        'Z': ['U', 'X', 'X', '1', 'X', 'X', 'X', '1', 'X'],
+        'W': ['U', 'X', 'X', '1', 'X', 'X', 'X', '1', 'X'],
+        'L': ['U', 'X', '0', '1', 'X', 'X', '0', '1', 'X'],
+        'H': ['1', '1', '1', '1', '1', '1', '1', '1', '1'],
+        '-': ['U', 'X', 'X', '1', 'X', 'X', 'X', '1', 'X']
+      };
+
+      xorTable = {
+        'U': ['U', 'U', 'U', 'U', 'U', 'U', 'U', 'U', 'U'],
+        'X': ['U', 'X', 'X', 'X', 'X', 'X', 'X', 'X', 'X'],
+        '0': ['U', 'X', '0', '1', 'X', 'X', '0', '1', 'X'],
+        '1': ['U', 'X', '1', '0', 'X', 'X', '1', '0', 'X'],
+        'Z': ['U', 'X', 'X', 'X', 'X', 'X', 'X', 'X', 'X'],
+        'W': ['U', 'X', 'X', 'X', 'X', 'X', 'X', 'X', 'X'],
+        'L': ['U', 'X', '0', '1', 'X', 'X', '0', '1', 'X'],
+        'H': ['U', 'X', '1', '0', 'X', 'X', '1', '0', 'X'],
+        '-': ['U', 'X', 'X', 'X', 'X', 'X', 'X', 'X', 'X']
+      };
+
+      notTable = ['U', 'X', '1', '0', 'X', 'X', '1', '0', 'X'];
+
+
+      indexOf = {
+        'U': 0,
+        'X': 1,
+        '0': 2,
+        '1': 3,
+        'Z': 4,
+        'W': 5,
+        'L': 6,
+        'H': 7,
+        '-': 8
+      };
+
+      names = [
+        'and',
+        'nand',
+        'or',
+        'nor',
+        'xor',
+        'xnor',
+        'not'
+      ];
+
+      chips = {};
+
+      names.forEach(function(chip) {
+        chips[chip]= Si.simulate(chip);
+      });
+
+    });
+
+
+    it('should be using the correct pack', function() {
+
+      expect(Si.using).toEqual('std_logic_1164');
+
+    });
+
+    it('and function', function() {
+
+      for(a in indexOf) {
+        for(b in andTable) {
+          expect(chips.and(a, b).toString()).toEqual(andTable[b][indexOf[a]].toString());
+        }
+      }
+
+    });
+
+    it('or function', function() {
+
+      for(a in indexOf) {
+        for(b in orTable) {
+          expect(chips.or(a, b).toString()).toEqual(orTable[b][indexOf[a]].toString());
+        }
+      }
+
+    });
+
+    it('nor function', function() {
+
+      for(a in indexOf) {
+        for(b in orTable) {
+          expect(chips.nor(a, b).toString()).toEqual(chips.not(chips.or(a,b)).toString());
+        }
+      }
+
+
+    });
+
+    it('xor function', function() {
+
+      for(a in indexOf) {
+        for(b in xorTable) {
+          expect(chips.xor(a, b).toString()).toEqual(xorTable[b][indexOf[a]].toString());
+        }
+      }
+
+
+    });
+
+    it('xnor function', function() {
+
+      for(a in indexOf) {
+        for(b in xorTable) {
+          expect(chips.xnor(a, b).toString()).toEqual(chips.not(xorTable[b][indexOf[a]]).toString());
+        }
+      }
+
+
+    });
+
+    it('not function', function() {
+
+
+      for (a in indexOf) {
+        expect(chips.not(a).toString()).toEqual(notTable[indexOf[a]].toString());
+      }
+
+
+    });
 
   });
 

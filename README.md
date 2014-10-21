@@ -114,7 +114,18 @@ expect(rs(-1, 0)).toEqual({q: 0, notQ: -1});
 expect(rs(0, 0)).toEqual({q: 0, notQ: -1});
 ```
 
-This is a perfectly valid chip definition and will not produce an infinite recursion.
+This is a perfectly valid chip definition and will not produce an infinite recursion. Trying to simulate this chip, however, will throw an **Error** because it will never reach a stable state:
+
+```js
+circular = {
+        name: 'circular',
+        in  : 'in',
+        out : 'out',
+        arch: {
+          out: {not: 'out'}
+        }
+      };
+```
 
 If at any point you want to clear the stored signal values of a chip, just call `chip.reset()` or `Silicon.reset('name')`.
 
